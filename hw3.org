@@ -183,6 +183,48 @@ really desirable for problem 4.
    Show the ten most informative features (for sure you can get this from
    the NLTK naive Bayes classifier).
 
+#+begin_src python :results output
+import nltk
+from features import train_features, test_features
+
+# helper function to convert tuples to feature dictionaries
+def convert_to_features(data):
+  return [({"suffix": suffix}, tag) for suffix, tag in data]
+
+# convert data
+train_data = convert_to_features(train_features)
+test_data = convert_to_features(test_features)
+
+# train the classifier
+classifier = nltk.NaiveBayesClassifier.train(train_data)
+
+# evaluate accuracy of classifier
+from nltk.classify.util import accuracy
+test_accuracy = accuracy(classifier, test_data)
+print(f"Accuracy on test set: {test_accuracy:.2f}")
+
+# display most informative features
+classifier.show_most_informative_features(10)
+
+#+end_src
+
+#+results:
+#+begin_example
+Accuracy on test set: 0.41
+Most Informative Features
+                  suffix = 'ion'               X : NOUN   =     13.9 : 1.0
+                  suffix = 'ing'               X : VERB   =      7.7 : 1.0
+                  suffix = 'ess'               X : NOUN   =      6.0 : 1.0
+                  suffix = 'ent'               X : NOUN   =      5.1 : 1.0
+                  suffix = 'ers'               X : NOUN   =      4.4 : 1.0
+                  suffix = 'hin'             ADP : X      =      4.4 : 1.0
+                  suffix = 'out'             ADP : X      =      4.4 : 1.0
+                  suffix = 'ugh'             ADP : X      =      4.4 : 1.0
+                  suffix = 'ady'             ADV : X      =      4.2 : 1.0
+                  suffix = 'ide'             ADV : X      =      4.2 : 1.0
+#+end_example
+
+
 
 4. [@4] <<lda>> Continuing with the Bayesian theme of problem [[bayesian]],
    let's try some [[http://scikit-learn.org/stable/modules/generated/sklearn.discriminant_analysis.LinearDiscriminantAnalysis.html#sklearn.discriminant_analysis.LinearDiscriminantAnalysis][linear discriminant analysis]] with the algorithm found in
@@ -197,8 +239,143 @@ really desirable for problem 4.
    the LDA with and without downcasing and compare and discuss the results.
 
 
+#+begin_src python :results output
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from features import train_features, test_features
 
 
+# helper function to convert tuples to feature dictionaries
+def convert_to_features(data):
+  return [({"suffix": suffix}, tag) for suffix, tag in data]
+
+# extract and encode suffixes and tags
+suffixes = [suffix for suffix, _ in train_features]
+tags = [tag for _, tag in train_features]
+suffixes_test = [suffix for suffix, _ in test_features]
+tags_test = [tag for _, tag in test_features]
+
+
+# optional: downcase the suffixes
+#suffixes = [suffix.lower() for suffix in suffixes]
+#suffixes_test = [suffix.lower() for suffix in suffixes_test]
+
+# get all the suffixes together
+all_suffixes = suffixes + suffixes_test
+
+# Encode features and labels
+suffix_encoder = LabelEncoder()
+suffix_encoder.fit(all_suffixes)
+tag_encoder = LabelEncoder()
+X_train = suffix_encoder.transform(suffixes).reshape(-1, 1)
+y_train = tag_encoder.fit_transform(tags)
+X_test = suffix_encoder.transform(suffixes_test).reshape(-1, 1)
+y_test = tag_encoder.transform(tags_test)
+
+# train the LDA using "svd"
+lda = LinearDiscriminantAnalysis(solver="svd")
+lda.fit(X_train, y_train)
+
+# evaluate using the LDA
+train_score = lda.score(X_train, y_train)
+test_score = lda.score(X_test, y_test)
+print(f"Training accuracy: {train_score:.2f}")
+print(f"Test accuracy: {test_score:.2f}")
+
+# decision function
+decision_function = lda.decision_function(X_test)
+print(f"Decision function output:\n{decision_function[:25]}")
+
+# print the decision function output with the class labels
+#for i, sample_scores in enumerate(decision_function):
+#  print(f"Sample {i + 1}:")
+#  for j, score in enumerate(sample_scores):
+#    original_tag = tag_encoder.inverse_transform([lda.classes_[j]])[0]
+#    print(f"  {original_tag}: {score:.4f}")
+#  print()
+
+#+end_src
+
+#+results:
+#+begin_example
+Training accuracy: 0.64
+Test accuracy: 0.37
+Decision function output:
+[[-3.13645088 -4.82066081 -4.01797794 -6.53735977 -1.46570217 -7.55911895
+  -6.76915513 -2.85537049 -0.45446973]
+ [-3.10694355 -4.91621567 -3.96150367 -6.26352483 -1.52265363 -7.16873197
+  -6.84497631 -2.88066039 -0.43640363]
+ [-3.20857992 -4.58708227 -4.15602616 -7.20673406 -1.3264875  -8.51339822
+  -6.58381448 -2.79355073 -0.49863131]
+ [-3.11677933 -4.88436405 -3.98032842 -6.35480315 -1.50366981 -7.29886097
+  -6.81970259 -2.87223042 -0.44242567]
+ [-3.13645088 -4.82066081 -4.01797794 -6.53735977 -1.46570217 -7.55911895
+  -6.76915513 -2.85537049 -0.45446973]
+ [-3.08645235 -4.98257321 -3.92228542 -6.07336168 -1.56220325 -6.89762991
+  -6.89762991 -2.89822282 -0.42385773]
+ [-3.13563124 -4.82331511 -4.01640921 -6.52975325 -1.46728416 -7.54827487
+  -6.77126128 -2.85607298 -0.4539679 ]
+ [-3.08645235 -4.98257321 -3.92228542 -6.07336168 -1.56220325 -6.89762991
+  -6.89762991 -2.89822282 -0.42385773]
+ [-3.05366643 -5.08874527 -3.85953623 -5.76910064 -1.62548265 -6.4638666
+  -6.98187566 -2.92632271 -0.40378429]
+ [-3.22087464 -4.54726775 -4.17955711 -7.32083195 -1.30275772 -8.67605946
+  -6.55222232 -2.78301327 -0.50615885]
+ [-3.19956379 -4.61627959 -4.13877013 -7.12306228 -1.34388933 -8.39411332
+  -6.60698206 -2.8012782  -0.49311112]
+ [-3.07989517 -5.00380762 -3.90973558 -6.01250947 -1.57485913 -6.81087725
+  -6.91447906 -2.9038428  -0.41984304]
+ [-3.09546848 -4.95337589 -3.93954145 -6.15703347 -1.54480142 -7.01691482
+  -6.87446232 -2.89049535 -0.42937793]
+ [-3.2134978  -4.57115646 -4.16543854 -7.25237322 -1.31699559 -8.57846272
+  -6.57117761 -2.78933574 -0.50164233]
+ [-3.08973094 -4.971956   -3.92856034 -6.10378779 -1.55587532 -6.94100624
+  -6.88920533 -2.89541283 -0.42586508]
+ [-3.20038343 -4.61362529 -4.14033886 -7.1306688  -1.34230735 -8.4049574
+  -6.60487591 -2.8005757  -0.49361295]
+ [-3.02170015 -5.19226303 -3.79835577 -5.47244613 -1.68718007 -6.04094738
+  -7.06401527 -2.95372011 -0.38421268]
+ [-3.01760191 -5.20553454 -3.79051212 -5.4344135  -1.69508999 -5.98672696
+  -7.07454599 -2.95723259 -0.3817035 ]
+ [-3.01186438 -5.22411465 -3.77953101 -5.38116781 -1.70616389 -5.91081838
+  -7.089289   -2.96215007 -0.37819064]
+ [-3.2134978  -4.57115646 -4.16543854 -7.25237322 -1.31699559 -8.57846272
+  -6.57117761 -2.78933574 -0.50164233]
+ [-3.03727347 -5.1418313  -3.82816163 -5.61697012 -1.65712235 -6.24698495
+  -7.02399854 -2.94037266 -0.39374756]
+ [-3.09956672 -4.94010438 -3.9473851  -6.1950661  -1.5368915  -7.07113523
+  -6.86393161 -2.88698286 -0.43188711]
+ [-3.2561195  -4.43313278 -4.24701249 -7.64791257 -1.23473237 -9.14235502
+  -6.46165813 -2.75280588 -0.52773781]
+ [-3.0208805  -5.19491733 -3.79678704 -5.4648396  -1.68876205 -6.03010329
+  -7.06612141 -2.9544226  -0.38371084]
+ [-3.09546848 -4.95337589 -3.93954145 -6.15703347 -1.54480142 -7.01691482
+  -6.87446232 -2.89049535 -0.42937793]]
+#+end_example
+
+According to the results above, it's clear that the three-letter suffixes
+predict the tags mildly well here. As you can see there is a SIGNIFICANT
+drop in accuracy when we move from the training to data to the test
+data. With the training data, the suffixes can predict the tags 64% of the
+time, while with the test data the suffixes can predict the tags 37% of the
+time, so a 17 point difference. This is most likely due to a relatively
+small training set that doesn't account for enough of the variety in
+suffix-tag relations. The conclusion that can be drawn here is that while
+three-letter suffixes are useful for tagging, they alone are not enough to
+determine the tag of a word. 
+
+An interesting observation in the decision function output is that the LDA
+is much more likely to classify any suffix as an "X" tag than anything
+else. The final column in each row represents the "X" tag, and as you can
+see that number is much lower than any of the other columns in each row. So
+miscellaneous words are the most common here, second being "NOUN".  
+
+For downcasing, the results are the same, because I don't think we had a
+single uppercase suffix in our feature set. This is most likely due to
+using the Brown corpus, where words are not usually put in all caps. If we
+used the Twitter corpus, I would wager we would get different results as
+there are plenty of all caps Twitter posts.
 # two draws w/o replacement of anchors and successors; compare
 # permute
 # re-draw same anchors with new successors, and then compare all four
