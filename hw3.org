@@ -448,6 +448,116 @@ there are plenty of all caps Twitter posts.
    enclosing your plots.
 
 
+#+begin_src python :results output
+import random
+import json
+from nltk.corpus import brown
+from nltk.tag import map_tag
+import numpy as np
+from sklearn.cluster import MeanShift, AgglomerativeClustering
+import matplotlib.pyplot as plt
+from sklearn.metrics import pairwise_distances
+
+# load the 500 random sentences from the Brown news corpus
+random.seed(56)  
+news_sents = list(brown.tagged_sents(categories="news"))
+random_sentences = random.sample(news_sents, 500)
+
+# convert to universal tagset, downcase words
+mapped_sentences = [
+  [(word.lower(), map_tag("brown", "universal", tag)) for word, tag in sent]
+  for sent in random_sentences
+]
+
+# creating tag map to handle all possible tags
+all_tags = set(tag for sent in mapped_sentences for _, tag in sent)
+tag_map = {tag: idx for idx, tag in enumerate(sorted(all_tags))}
+chunks = []
+
+for sent in mapped_sentences:
+  # find all nouns in the sentence and their indices
+  nouns_indices = [i for i, (_, tag) in enumerate(sent) if tag == "NOUN"]
+    
+  for noun_idx in nouns_indices: # ensure the validity of the position in the sentence
+    if noun_idx >= 3:  # ensure there are at least three preceding tags
+      # if there are, get the three tags preceding the noun
+      preceding_tags = [sent[noun_idx - 3][1], sent[noun_idx - 2][1], sent[noun_idx - 1][1]]
+      # convert those tags to integers using tag_map
+      ternary_tuple = tuple(tag_map[tag] for tag in preceding_tags)
+      chunks.append(ternary_tuple)
+
+# save the list of mapped ternary tuples to "noun_tag_chunks.json"
+with open("noun_tag_chunks.json", "w") as f:
+  json.dump(chunks, f)
+
+
+print(f"saved {len(chunks)} chunks to 'noun_tag_chunks.json'.")
+
+
+# load the saved ternary tuples into a data variable
+with open("noun_tag_chunks.json", "r") as f:
+    data = json.load(f)
+
+data = np.array(data) # make an array of the data
+
+# clustering with meanshift
+print("running MeanShift...")
+mean_shift = MeanShift()
+mean_shift.fit(data)
+
+# get the results
+ms_labels = mean_shift.labels_
+ms_cluster_centers = mean_shift.cluster_centers_
+
+ms_n_clusters = len(np.unique(ms_labels))
+#ms_n_clusters = 2
+print(f"MeanShift identified {ms_n_clusters} clusters.")
+
+
+# agglomerativeClustering with different settings
+def run_agglomerative(linkage, metric="euclidean"):
+    print(f"running agglomerativeClustering with linkage={linkage} and metric={metric}...")
+    clustering = AgglomerativeClustering(linkage=linkage, metric=metric)
+    clustering.fit(data)
+    return clustering.labels_, len(np.unique(clustering.labels_))
+
+# ward linkage
+ac_labels_ward, ac_n_clusters_ward = run_agglomerative(linkage="ward")
+
+# average linkage + manhattan distance
+ac_labels_avg_man, ac_n_clusters_avg_man = run_agglomerative(linkage="average", metric="manhattan")
+
+# average linkage + cosine distance
+ac_labels_avg_cos, ac_n_clusters_avg_cos = run_agglomerative(linkage="average", metric="cosine")
+
+
+# plot results
+def plot_clusters(data, labels, title):
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(data[:, 0], data[:, 1], c=labels, cmap="tab10", s=10)
+    plt.colorbar(scatter)
+    plt.title(title)
+    plt.xlabel("Dimension 1")
+    plt.ylabel("Dimension 2")
+    plt.show()
+
+# print plot clusters for each metric
+plot_clusters(data, ms_labels, f"MeanShift Clustering ({ms_n_clusters} clusters)")
+plot_clusters(data, ac_labels_ward, f"Agglomerative Clustering (Ward - {ac_n_clusters_ward} clusters)")
+plot_clusters(data, ac_labels_avg_man, f"Agglomerative Clustering (Average + Manhattan - {ac_n_clusters_avg_man} clusters)")
+plot_clusters(data, ac_labels_avg_cos, f"Agglomerative Clustering (Average + Cosine - {ac_n_clusters_avg_cos} clusters)")
+#+end_src
+
+#+results:
+: saved 2712 chunks to 'noun_tag_chunks.json'.
+: running MeanShift...
+: MeanShift identified 1 clusters.
+: running agglomerativeClustering with linkage=ward and metric=euclidean...
+: running agglomerativeClustering with linkage=average and metric=manhattan...
+: running agglomerativeClustering with linkage=average and metric=cosine...
+
+
+
 
 
 
