@@ -185,7 +185,15 @@ really desirable for problem 4.
 
 #+begin_src python :results output
 import nltk
-from features import train_features, test_features
+
+
+def read_feature_set(file_name):
+  with open(file_name, 'r') as file:
+    feature_set = eval(file.read())
+  return feature_set
+
+train_features = read_feature_set('trainFeatureSet.txt')
+test_features = read_feature_set('testFeatureSet.txt')
 
 # helper function to convert tuples to feature dictionaries
 def convert_to_features(data):
@@ -243,7 +251,14 @@ Most Informative Features
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from features import train_features, test_features
+
+def read_feature_set(file_name):
+  with open(file_name, 'r') as file:
+    feature_set = eval(file.read()) 
+  return feature_set
+
+train_features = read_feature_set('trainFeatureSet.txt')
+test_features = read_feature_set('testFeatureSet.txt')
 
 
 # helper function to convert tuples to feature dictionaries
@@ -501,7 +516,6 @@ with open("noun_tag_chunks.json", "r") as f:
 data = np.array(data) # make an array of the data
 
 # clustering with meanshift
-print("running MeanShift...")
 mean_shift = MeanShift()
 mean_shift.fit(data)
 
@@ -550,7 +564,6 @@ plot_clusters(data, ac_labels_avg_cos, f"Agglomerative Clustering (Average + Cos
 
 #+results:
 : saved 2712 chunks to 'noun_tag_chunks.json'.
-: running MeanShift...
 : MeanShift identified 1 clusters.
 : running agglomerativeClustering with linkage=ward and metric=euclidean...
 : running agglomerativeClustering with linkage=average and metric=manhattan...
